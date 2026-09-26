@@ -48,7 +48,7 @@ try
         () => http.GetFromJsonAsync<JsonArray>("/v1/calculators"),
         maxRetries
     );
-    calcs = ValidateDiscovery(calcs);
+    calcs = DiscoverModules.RequireCalculator(calcs, CalcUri, PeriodUri);
     Console.WriteLine($"Discovered {calcs.Count} calculators.\n");
 
     foreach (var c in calcs.Cast<JsonObject>().Take(5))
@@ -111,7 +111,7 @@ try
 
     // ---- Step 3: Module discovery + ?module= filtering (see DiscoverModules.cs) ----
     Console.WriteLine();
-    await DiscoverModules.RunAsync(http);
+    await DiscoverModules.RunAsync(http, CalcUri, PeriodUri);
 
     Console.WriteLine("\n=== Done ===");
     return 0;
@@ -126,21 +126,6 @@ catch (Exception error) when (error is HttpRequestException or OperationCanceled
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
-
-static JsonArray ValidateDiscovery(JsonArray? calcs)
-{
-    if (calcs is null || calcs.Any(c => c is not JsonObject))
-        throw new InvalidDataException("Discovery must be an array of calculator objects");
-    foreach (var calc in calcs)
-    {
-        if (calc!["calc_uri"] is JsonValue uri && uri.TryGetValue<string>(out var name)
-            && name == CalcUri && calc["supported_periods"] is JsonArray periods
-            && periods.All(p => p is JsonValue value && value.TryGetValue<string>(out _))
-            && periods.Any(p => p!.GetValue<string>() == PeriodUri))
-            return calcs;
-    }
-    throw new InvalidDataException("Discovery does not advertise the example calculator and period");
-}
 
 static void ValidateCalculation(JsonNode? response)
 {

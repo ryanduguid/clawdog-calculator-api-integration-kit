@@ -237,7 +237,9 @@ class ExampleTests(unittest.TestCase):
 
     def test_dotnet_module_discovery_cannot_fail_silently(self):
         for option in ("modules", "filtered"):
-            for response in (None, {}, [None], b"invalid JSON", DISCONNECT):
+            for response in (None, {}, [None], [], [{"module_uri": "urn:sbrm:module:other"}],
+                             [{"module_uri": "urn:sbrm:module:fbt", "calculators": []}],
+                             [{**LISTING, "supported_periods": []}], b"invalid JSON", DISCONNECT):
                 with self.subTest(option=option, response=response):
                     result, requests = self.run_example(self.commands()["dotnet"], **{option: response})
                     self.assertEqual(result.returncode, 1, result.stderr)

@@ -14,13 +14,20 @@ using System.Text.Json.Nodes;
 
 internal static class DiscoverModules
 {
-    public static async Task RunAsync(HttpClient http)
+    public static async Task RunAsync(HttpClient http, string calcUri, string periodUri)
     {
+        const string ModuleUri = "urn:sbrm:module:fbt";
+
         // ---- Step 1: GET /v1/modules ----
         Console.WriteLine("=== GET /v1/modules ===");
         var modules = await http.GetFromJsonAsync<JsonArray>("/v1/modules");
         if (modules is null || modules.Any(m => m is not JsonObject))
             throw new InvalidDataException("Module discovery must be an array of objects");
+        if (!modules.OfType<JsonObject>().Any(m =>
+            m["module_uri"] is JsonValue uri && uri.TryGetValue<string>(out var name) && name == ModuleUri
+            && m["calculators"] is JsonArray calculators
+            && calculators.Any(c => c is JsonValue value && value.TryGetValue<string>(out var name) && name == calcUri)))
+            throw new InvalidDataException("Module discovery does not advertise the example FBT calculator");
         Console.WriteLine($"Discovered {modules?.Count} modules.\n");
 
         if (modules is not null)
@@ -45,13 +52,11 @@ internal static class DiscoverModules
         }
 
         // ---- Step 2: GET /v1/calculators?module=urn:sbrm:module:fbt ----
-        const string ModuleUri = "urn:sbrm:module:fbt";
         Console.WriteLine($"=== GET /v1/calculators?module={ModuleUri} ===");
         var fbtCalcs = await http.GetFromJsonAsync<JsonArray>(
             $"/v1/calculators?module={ModuleUri}"
         );
-        if (fbtCalcs is null || fbtCalcs.Any(c => c is not JsonObject))
-            throw new InvalidDataException("Filtered discovery must be an array of calculator objects");
+        fbtCalcs = RequireCalculator(fbtCalcs, calcUri, periodUri);
         Console.WriteLine($"FBT calculators: {fbtCalcs?.Count}\n");
 
         if (fbtCalcs is not null)
@@ -59,9 +64,9 @@ internal static class DiscoverModules
             foreach (var c in fbtCalcs)
             {
                 if (c is null) continue;
-                var calcUri = c["calc_uri"]?.ToString();
+                var listedUri = c["calc_uri"]?.ToString();
                 var selectionKind = (c["selection"] as JsonObject)?["kind"]?.ToString() ?? "?";
-                Console.WriteLine($"  {calcUri} - {selectionKind}");
+                Console.WriteLine($"  {listedUri} - {selectionKind}");
             }
         }
 
@@ -74,5 +79,20 @@ internal static class DiscoverModules
         Console.WriteLine("  employer's choice, not yours. Compute every method in the group the");
         Console.WriteLine("  records support, present them side by side with the election");
         Console.WriteLine("  provision, and let the employer choose. Never pick the method for them.");
+    }
+
+    internal static JsonArray RequireCalculator(JsonArray? calcs, string calcUri, string periodUri)
+    {
+        if (calcs is null || calcs.Any(c => c is not JsonObject))
+            throw new InvalidDataException("Discovery must be an array of calculator objects");
+        foreach (var calc in calcs)
+        {
+            if (calc!["calc_uri"] is JsonValue uri && uri.TryGetValue<string>(out var name)
+                && name == calcUri && calc["supported_periods"] is JsonArray periods
+                && periods.All(p => p is JsonValue value && value.TryGetValue<string>(out _))
+                && periods.Any(p => p!.GetValue<string>() == periodUri))
+                return calcs;
+        }
+        throw new InvalidDataException("Discovery does not advertise the example calculator and period");
     }
 }
