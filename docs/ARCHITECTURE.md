@@ -10,15 +10,15 @@ The ClawDog Calculator Constellation is not one omnibus calculator. It is a **co
 - Is identified by a **URN** of the form `urn:sbrm:calculator:<domain>:<method-slug>` (e.g. `urn:sbrm:calculator:fbt:car-parking-register-12wk`).
 - Has a well-defined **input schema** declared in the OpenAPI spec (e.g. `FBTCarParkingRegister12WkInput`).
 - Is bound to a specific **statute-of-record citation** (e.g. `FBTAA s.39GB`).
-- Returns a `CalculatorInvocationResponse` envelope carrying the computed result, the algebra applied, and an optional `AdvisoryBlock` carrying compliance hints.
+- Returns calculator-specific JSON. The generic invocation response is untyped in the pinned schema; see [CONTRACT.md](CONTRACT.md) for the fields checked by the example.
 
 ### Why a constellation rather than one omnibus calculator
 
 Three reasons, in increasing load-bearing-ness:
 
 1. **Reproducibility.** A single Prolog rule with one statute citation is easy to audit. An omnibus calculator that branches across 20 methods internally is not.
-2. **Versioning.** When the Australian Taxation Office updates the statutory rate for one method (e.g. car-parking statutory rate per s.39FA), only that calculator's `supported_periods` extends. The other 19 are untouched.
-3. **Partner composition.** You probably don't need all 20 calculators. The constellation lets you bind to the 3 or 5 you actually use, with the dependency surface narrowing to exactly those input schemas.
+2. **Versioning.** When the Australian Taxation Office updates the statutory rate for one method (e.g. car-parking statutory rate per s.39FA), only that calculator's `supported_periods` extends. Other calculators need not change.
+3. **Partner composition.** You probably need only some calculators. The constellation lets you bind to the 3 or 5 you actually use, with the dependency surface narrowing to exactly those input schemas.
 
 ### URN choice
 
@@ -26,17 +26,17 @@ We use URNs (not numeric IDs, not free-text slugs) because a URN is **simultaneo
 
 ### Period URN
 
-Each invocation pairs a calculator URN with a **period URN** of the form `urn:sbrm:period:fy2026` (Australian financial year 2026). The period URN lets a single calculator support multiple statutory regimes simultaneously — the FY2025 statutory rate for car-parking is different from FY2026's, and `urn:sbrm:calculator:fbt:car-parking-statutory-228/urn:sbrm:period:fy2025` would invoke the older rate without breaking the FY2026 call shape.
+Each invocation pairs a calculator URN with a domain-prefixed period URN: `urn:sbrm:period:<domain>:<period_id>`. For example, the FBT example uses `urn:sbrm:period:fbt:fy2026`, while depreciation uses its own domain. A domainless period such as `urn:sbrm:period:fy2026` is not interchangeable.
 
-At the time of this kit's pin, all 20 calculators declare `supported_periods: [urn:sbrm:period:fy2026]` only. As the substrate matures, additional period URNs will land.
+Read the selected calculator's `supported_periods` from `GET /v1/calculators`. The examples verify that their FY2026 period is advertised before invoking it; they do not assume an earlier period is available.
 
 ## 2. Dual-surface exposure (REST + MCP)
 
-The same 20 calculators are exposed via two surfaces over the same input/output schema:
+Calculator capabilities are exposed through REST routes and MCP tools. Discover the required capability and inspect its schema for the chosen surface:
 
 ### REST
 
-The primary surface for partner integrations. Eight paths:
+The primary surface for partner integrations. Selected paths:
 
 | Path | Purpose |
 |---|---|
@@ -50,7 +50,7 @@ The primary surface for partner integrations. Eight paths:
 
 ### MCP (Model Context Protocol)
 
-JSON-RPC 2.0 at `POST /mcp`. The same 20 calculators are exposed as MCP **tools** — pointing your LLM agent at `POST /mcp` gives it a 20-tool registry it can call against.
+JSON-RPC 2.0 at `POST /mcp` exposes calculator tools. Use `tools/list` to discover their current names and input schemas.
 
 Method coverage:
 
@@ -61,7 +61,7 @@ Method coverage:
 
 **Pick MCP if** your integration target is an LLM agent (Claude Desktop, an OpenAI custom GPT with a remote MCP server, an Office add-in MCP host, a downstream agentic UI).
 
-You can use both surfaces concurrently against the same deployment — the responses are bit-for-bit identical for matched calls.
+REST and MCP have different transport envelopes. The kit checks REST calculation output and MCP tool discovery; it does not establish result equivalence between them.
 
 ## 3. Topology + boundaries
 
@@ -98,7 +98,7 @@ We define the contract; you implement the integration. We don't reach across the
 
 ### Why we don't ship a wrapper SDK
 
-The constellation is small enough (20 calculators, 8 paths) that a wrapper SDK would be more friction than benefit at this stage. Generated clients from your preferred OpenAPI toolchain (NSwag for .NET, Kiota, openapi-python-client) give you strongly-typed bindings without an extra layer to maintain. See [`openapi/README.md`](../openapi/README.md) for the regeneration commands.
+The kit supplies examples rather than a wrapper SDK. Generated clients from your preferred OpenAPI toolchain (NSwag for .NET, Kiota, openapi-python-client) can provide typed bindings where the snapshot declares concrete schemas. The generic calculation response remains untyped. See [`openapi/README.md`](../openapi/README.md) for the regeneration commands.
 
 If the constellation grows to a size where a wrapper SDK starts to make sense, we'll ship per-language SDKs as separate repos, each with its own versioning track. We're not there yet.
 

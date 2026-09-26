@@ -17,16 +17,16 @@ Pinning the spec rather than fetching it at integration-build time gives you:
 | Source URL | `https://fbt-calculator-api-8340695160.australia-southeast1.run.app/openapi.json` |
 | Pinned at | 2026-06-03 |
 | Pinned `info.version` | `0.1.0a0` |
-| File size | ~45 KB |
-| Paths | 8 |
-| Calculator URNs | 20 |
-| Schemas | ~30 components |
+| File size | 69,538 bytes |
+| Paths | 12 |
+| Calculator URNs | Discover through `GET /v1/calculators`; the pin is not a live catalogue |
+| Schemas | 29 components |
 
 ## Refreshing the snapshot
 
 The published snapshot is a **sanitised** view of the live API's `openapi.json`. Internal forensic references (development phase numbers, mutation IDs, internal thread numbers, internal file paths) are stripped, and the schema/path descriptions are replaced with partner-facing copy that preserves all statute citations and field-usage guidance.
 
-The structural shape (paths, methods, parameters, types, required fields, constraints, enums) is preserved byte-for-byte across the live spec and the sanitised snapshot. Client generation against either produces semantically identical clients.
+The sanitiser edits descriptions and summaries. Review the structural diff when refreshing the pin; the current live schema can contain additions absent from this saved snapshot. Equal `info.version` values do not establish equality. The generic invocation response is untyped at this pin, so generated clients still need checks for the result fields they consume.
 
 To regenerate the snapshot:
 
@@ -127,7 +127,7 @@ The `sanitise.py` script in this directory is the canonical transform from the r
 1. **Regex sanitiser** — strips known internal-marker patterns (thread numbers, mutation IDs, phase numbers, internal file paths, internal Lesson/Standing-Rule references, internal verification dates) from description fields.
 2. **Hand-curated overrides** — replaces schema + path descriptions with partner-facing copy that preserves all statute citations and field-usage guidance. The override table is the source of truth for the descriptions in the published snapshot.
 
-A self-check pass at the end of the script verifies that no known-leak pattern survives in the output; the script fails (exit 1) if any do. This is the same discipline applied by the kit's CI.
+A self-check pass at the end of the script verifies that no known-leak pattern survives in the output; the script fails (exit 1) if any do. CI validates the saved OpenAPI document but does not run the sanitiser or this internal-marker check.
 
 ## Validating the snapshot
 
@@ -142,4 +142,4 @@ pip install openapi-spec-validator
 openapi-spec-validator openapi/clawdog-calculator-api.openapi.json
 ```
 
-The kit's CI runs `swagger-cli validate` on every push.
+The kit's CI runs `openapi-spec-validator` for the branches and events declared in `.github/workflows/test.yml`.
