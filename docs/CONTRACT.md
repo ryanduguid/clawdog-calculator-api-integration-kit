@@ -2,7 +2,7 @@
 
 > Path-by-path documentation of the ClawDog Calculator-Constellation REST API as of pinned snapshot `v0.1.0a0` (2026-06-03 mint).
 >
-> Read this if you want the wire shape without parsing the OpenAPI JSON. The canonical schema is [`../openapi/clawdog-calculator-api.openapi.json`](../openapi/clawdog-calculator-api.openapi.json); this document mirrors it in prose form for human consumption.
+> Read this if you want the wire shape without parsing the OpenAPI JSON. The canonical schema is [`../openapi/clawdog-calculator-api.openapi.json`](../openapi/clawdog-calculator-api.openapi.json); this document describes selected routes. The generic invocation response has no declared field schema at this pin, so validate the fields your integration consumes.
 
 ## 1. Base URL and authentication
 
@@ -35,7 +35,7 @@ https://fbt-calculator-api-8340695160.australia-southeast1.run.app
 | `method` | string | Short method slug (used internally; informational for partners). |
 | `supported_periods` | string[] | Array of period URNs the calculator supports. Period URNs are domain-prefixed: `urn:sbrm:period:<domain>:<period_id>` (e.g. `urn:sbrm:period:fbt:fy2026` for the FBT-domain FY2026 period). Currently each calculator supports one period URN matching its domain. |
 | `input_schema_ref` | string | Pointer into the OpenAPI components schema (e.g. `#/components/schemas/FBTCarOperatingCostInput`). |
-| `jurisdiction` | string | ISO-style jurisdiction tag. Currently `"AU"` for all 20 calculators. |
+| `jurisdiction` | string | ISO-style jurisdiction tag. For example, `"AU"` for the calculators listed below. |
 
 **Example invocation:**
 
@@ -56,14 +56,11 @@ curl -s https://fbt-calculator-api-8340695160.australia-southeast1.run.app/v1/ca
 
 **Request body:** JSON matching the calculator's declared input schema (see the URN table in §3 below for the schema name per calculator).
 
-**Response (HTTP 200):** `CalculatorInvocationResponse` envelope:
+**Response (HTTP 200):** calculator-specific JSON. The pinned generic route's response schema is `{}`; it does not declare a `CalculatorInvocationResponse` wrapper or typed result fields.
 
-| Field | Type | Description |
-|---|---|---|
-| `calc_uri` | string | Echo of the invoked URN. |
-| `period_uri` | string | Echo of the invoked period. |
-| `result` | object | Domain-specific result object. The shape varies by calculator; see the corresponding response schema in the OpenAPI spec. |
-| `advisory` | `AdvisoryBlock` \| null | Optional compliance hints (e.g. "this method requires a 12-week register; check that the register start date is at least 12 weeks before period end"). |
+The FBT Car-Operating-Cost response observed on 27 September 2026 has a top-level `taxable_value` string and an `advisory` object. The examples require a signed or unsigned decimal string with exactly two fractional digits, including `0.00`, and a non-blank `advisory.disclaimer`. They print that disclaimer unchanged. Additional response fields are allowed. This is the example's minimum smoke-test contract, not a schema for every calculator or independent proof of the amount's correctness.
+
+The examples first require discovery to advertise the selected calculator and `urn:sbrm:period:fbt:fy2026`. HTTP errors, transport failures, invalid JSON and unusable responses return a non-zero exit status. Their fabricated FY2026 input uses 365 days, from 1 April 2025 to 31 March 2026.
 
 **Errors:**
 
@@ -117,10 +114,10 @@ curl -s https://fbt-calculator-api-8340695160.australia-southeast1.run.app/v1/ca
 **Methods supported:**
 
 - `initialize` — handshake.
-- `tools/list` — returns 20 tools, each corresponding to a calculator in the constellation. Each tool's `inputSchema` mirrors the calculator's REST input schema.
+- `tools/list`: returns the available tools and their input schemas. Discover the required tool by name; do not require a fixed total count.
 - `tools/call` — invokes a tool. The tool name encodes the calc URN; the arguments encode the calc input.
 
-**Wire shape:** standard MCP/JSON-RPC 2.0 envelope. The result of `tools/call` matches the REST `CalculatorInvocationResponse` byte-for-byte.
+**Wire shape:** MCP uses a JSON-RPC 2.0 envelope. Check the response id, any RPC error and the method-specific result before consuming it. The kit probes `tools/list` for `fbt-car-operating-cost`; it does not call that tool or establish REST/MCP result equivalence.
 
 **Example (curl):**
 
@@ -142,9 +139,9 @@ curl -s -X POST \
 
 ---
 
-## 3. The 20 calculator URNs (statute-of-record citations)
+## 3. Selected calculator URNs and source citations
 
-This is the canonical list at pin time. Order matches the live `GET /v1/calculators` response order.
+This table preserves the original documented selection. It is not a complete current discovery response. Query the API for additions and each calculator's supported periods.
 
 | # | URN | Statute-of-record | Input schema |
 |---|---|---|---|
@@ -169,7 +166,7 @@ This is the canonical list at pin time. Order matches the live `GET /v1/calculat
 | 19 | `urn:sbrm:calculator:fbt:car-statutory-formula` | FBTAA s.9 (Statutory Formula; rate-table-fed) | `FBTCarStatutoryFormulaInput` |
 | 20 | `urn:sbrm:calculator:depreciation:audit` | ITAA97 Div 40 (Prime Cost / Diminishing Value) | `DepreciationAuditInput` |
 
-All 20 declare `jurisdiction: AU` at this pin. Period URNs are **domain-prefixed**: the 19 FBT calculators support `urn:sbrm:period:fbt:fy2026`; the depreciation-audit calculator supports `urn:sbrm:period:depreciation:fy2026`. The exact `supported_periods` value per calculator is in the `GET /v1/calculators` discovery response — consume that, do not hard-code the period URN against your local assumption.
+The listed calculators use `jurisdiction: AU`. Period URNs are **domain-prefixed**: the 19 FBT calculators support `urn:sbrm:period:fbt:fy2026`; the depreciation-audit calculator supports `urn:sbrm:period:depreciation:fy2026`. The exact `supported_periods` value per calculator is in the `GET /v1/calculators` discovery response. Consume that value rather than guessing a period URN.
 
 ---
 
@@ -200,9 +197,9 @@ JSON-RPC 2.0 errors carry an `error` object with `code` + `message` + optional `
 
 ---
 
-## 5. MCP equivalence
+## 5. REST and MCP surfaces
 
-For every REST invocation, there is an exact MCP equivalent:
+The two surfaces expose calculator capabilities through different request shapes:
 
 | REST | MCP |
 |---|---|
@@ -211,7 +208,7 @@ For every REST invocation, there is an exact MCP equivalent:
 | `GET /v1/rates/{period_uri}` | (not in tool surface at v0.1.0a0; use REST) |
 | `GET /v1/rates/{period_uri}/{rate_id}` | (not in tool surface at v0.1.0a0; use REST) |
 
-For matched REST + MCP calls, the result payload is **byte-identical** modulo the JSON-RPC envelope. You can drive an integration off either surface, or both concurrently, without risk of result divergence.
+Inspect each tool's advertised input schema and decode its MCP result before comparing it with a REST response. The kit does not verify byte equality or guarantee that every REST capability has an MCP equivalent.
 
 ---
 

@@ -6,7 +6,12 @@ The kit's version tracks the kit's *scaffolding* shape; the pinned API version (
 
 ## [Unreleased]
 
-(Nothing yet.)
+### Fixed
+
+- Make Python and .NET examples fail on rejected requests, invalid discovery and unusable calculation responses. Preserve the advisory disclaimer and allow added capabilities.
+- Use 365 days for the FY2026 FBT sample; dispose .NET responses and reject negative retry settings.
+- Run offline command regressions in CI and replace fixed discovery counts with capability checks, including JSON-RPC errors.
+- Correct response-envelope, snapshot, timeout and CI claims. The saved OpenAPI snapshot is unchanged.
 
 ## [v0.1.0] — 2026-06-03
 

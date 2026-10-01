@@ -17,9 +17,11 @@ This builds and executes [`Program.cs`](Program.cs), which:
 
 1. `GET /v1/calculators` and prints the first 5 calculator URNs with their metadata.
 2. `POST /v1/calculators/urn:sbrm:calculator:fbt:car-operating-cost/urn:sbrm:period:fbt:fy2026` with a canonical fixture for the FBT Car Operating-Cost method.
-3. Prints the full response payload (taxable value, statutory algebra trace, manifest of rate-table sources consumed, advisory block).
+3. Prints the calculation and advisory, then runs module discovery and filtered FBT discovery. Either discovery step failing also makes the command fail.
 
 Expected runtime: ~2–5 seconds (first run includes JIT + build; subsequent `dotnet run` invocations are warmer).
+
+The command returns 0 only after discovery advertises the selected calculator and period and the calculation contains a two-decimal `taxable_value` string and a non-blank advisory disclaimer. It allows additional calculators and response fields. Failures return 1 and do not print `=== Done ===`. This smoke test does not independently verify the tax amount.
 
 ## Customising
 
@@ -31,7 +33,7 @@ Expected runtime: ~2–5 seconds (first run includes JIT + build; subsequent `do
 
 ## What the example demonstrates
 
-The .NET example mirrors the Python example in [`../python/`](../python/) — same fixture, same URNs, same retry shape. Pick whichever stack matches your integration target.
+The .NET example mirrors the Python example in [`../python/`](../python/): the same fixture and URNs, with retries on 5xx. Python adds up to 500 ms of jitter; .NET adds up to the current backoff delay. Pick whichever stack matches your integration target.
 
 - **Plain `HttpClient` + `System.Text.Json`.** No third-party libraries; no generated client. If you want a strongly-typed client, see [`../../openapi/README.md`](../../openapi/README.md) for NSwag and Kiota commands.
 - **Anonymous-type request bodies.** The `fixture` object is an anonymous type that `System.Text.Json` serialises with the camelCase field names the substrate expects. In production code, you would use generated DTOs from the OpenAPI snapshot.
@@ -46,14 +48,14 @@ The .NET example mirrors the Python example in [`../python/`](../python/) — sa
 | `formOfFinance: "owned"` | Required. One of `owned`, `hire_purchase`, `leased`, `unspecified`. |
 | `fuelRepairsServicing`, `registrationInsurance` | Operating-cost components. |
 | `employeeContribution: 0.00` | Post-tax employee contribution; reduces taxable value. |
-| `daysHeldInFBTYear: 366` | Pro-rates the calculation when the car wasn't held the full year. |
+| `daysHeldInFBTYear: 365` | The full FY2026 FBT year, from 1 April 2025 to 31 March 2026. |
 | `acquisitionCost: 45000.00` + `acquisitionDate: "2024-04-01"` | Drives the deemed-depreciation chained-DV walk. Mutually exclusive with `openingDepreciatedValue` (legacy single-year primitive). |
 
 ## Next steps
 
 After running this example successfully:
 
-- Read [`../../docs/CONTRACT.md`](../../docs/CONTRACT.md) for the full URN list and per-route schemas.
+- Read [`../../docs/CONTRACT.md`](../../docs/CONTRACT.md) for selected URNs and per-route contracts.
 - Read [`../../docs/OPERATIONAL.md`](../../docs/OPERATIONAL.md) for production retry and backpressure shape.
 - See [`../python/`](../python/) for the Python equivalent.
 - Generate a strongly-typed client per [`../../openapi/README.md`](../../openapi/README.md).

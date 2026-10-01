@@ -53,10 +53,10 @@ See [CONTRACT.md § 4](CONTRACT.md#4-error-semantics) for status-code-by-status-
 
 The kit's CI (`.github/workflows/test.yml`) runs **two gates**:
 
-1. **Gate 1 — hermetic example regression.** Builds the .NET example, runs the Python example against a mocked URL. Catches drift in our example code without depending on Cloud Run.
-2. **Gate 2 — live substrate probe.** Runs the Python example against the **live production URL** with three-retry-with-jitter wrapping. Catches drift in the *contract* between our pinned snapshot and what production actually serves.
+1. **Gate 1: offline example regression.** Builds the .NET example, validates the OpenAPI snapshot and runs both commands against a local fabricated HTTP service. Tests cover failures, retries, discovery, response validation and the sample's day count.
+2. **Gate 2: live probe.** Runs the Python example against the public production URL with up to five retries on 5xx. Separate REST and MCP discovery probes check the required capability and JSON-RPC envelope while allowing additions. HTTP and decoding errors fail the probe.
 
-Gate 2 is deliberately not hermetic. A hermetic green that never touches the real backend is a green that lies — it tells you your mock is consistent with your code, not that your code is consistent with the substrate. We learned this discipline the hard way internally; it's documented in our broader engineering canon as a binding rule.
+These gates check the example's consumed fields. They do not compare the entire deployed schema with the pin, call every calculator or establish independent numerical correctness. The displayed API version comparison is informational.
 
 **Partner recommendation:** mirror Gate 2 in your own CI. Have at least one test in your pipeline that hits the live calc-api (with appropriate timeout + retry) and asserts the response shape matches what your integration expects. If you only run hermetic tests, you'll discover contract drift in production rather than in CI.
 
