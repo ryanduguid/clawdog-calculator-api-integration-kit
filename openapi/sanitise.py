@@ -18,10 +18,9 @@ This script transforms the raw live spec into the partner-facing snapshot by:
 3. Self-checking the output for residual leaks; exits non-zero if any of the
    known leak patterns survive.
 
-The structural shape (paths, methods, parameters, types, required fields,
-constraints, enums) is preserved byte-for-byte. Client generation against the
-sanitised snapshot produces a semantically identical client to one generated
-against the live spec.
+The output uses compact UTF-8 JSON, so whitespace and escaping can change.
+Review the transformed schema and regenerated clients before publishing an
+updated snapshot.
 
 This script is shipped in the kit so partners can see exactly how the snapshot
 is produced — the transform is auditable. The patterns it strips are
@@ -29,8 +28,10 @@ referenced literally here because that is what makes detection work; their
 presence in this script does not propagate them into the published snapshot.
 """
 import json
+import os
 import re
 import sys
+import tempfile
 
 import argparse
 from pathlib import Path
@@ -328,8 +329,7 @@ def main() -> int:
             "partner-facing kit snapshot. Strips internal forensic references "
             "(thread numbers, mutation IDs, phase nomenclature, file paths) "
             "and applies hand-curated partner-facing descriptions over schema + "
-            "path documentation. The structural shape (types, required fields, "
-            "constraints) is preserved byte-for-byte."
+            "path documentation. Review the transformed schema before publication."
         )
     )
     parser.add_argument(
@@ -348,8 +348,10 @@ def main() -> int:
         help=f"Sanitised output (default: {DEFAULT_OUTPUT.name} in the same directory).",
     )
     args = parser.parse_args()
+    if hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(errors="backslashreplace")
 
-    with open(args.input) as f:
+    with open(args.input, encoding="utf-8") as f:
         spec = json.load(f)
 
     apply_overrides(spec)
@@ -360,7 +362,7 @@ def main() -> int:
     info["title"] = "ClawDog Calculator-Constellation REST API"
     info["summary"] = (
         "Public REST + MCP surface over the LodgeiT Labs calculator pool. "
-        "Discover and invoke 20 SBRM-vocabulary deterministic calculators "
+        "Discover and invoke SBRM-vocabulary deterministic calculators "
         "(Australian Fringe Benefits Tax, Depreciation) from any HTTP/JSON-RPC client."
     )
     info["description"] = (
@@ -376,12 +378,7 @@ def main() -> int:
         "runnable examples, and client-regeneration commands."
     )
 
-    with open(args.output, "w") as f:
-        json.dump(spec, f, ensure_ascii=False, separators=(",", ":"))
-
-    # Re-scan output for known-leak patterns to confirm clean.
-    with open(args.output) as f:
-        out_text = f.read()
+    out_text = json.dumps(spec, ensure_ascii=False, separators=(",", ":"))
 
     leaks_found = []
     for pattern in [
@@ -403,12 +400,25 @@ def main() -> int:
             leaks_found.append((pattern, len(matches), matches[:3]))
 
     if leaks_found:
-        print("❌ Residual leaks found:")
+        print("Residual leaks found:")
         for p, n, samples in leaks_found:
             print(f"  {p}: {n} hits, e.g. {samples}")
         return 1
-    print(f"✅ Sanitised → {args.output}")
-    print(f"   Size: {len(out_text)} bytes")
+    output_bytes = out_text.encode("utf-8")
+    temporary_path = None
+    try:
+        with tempfile.NamedTemporaryFile(
+            dir=args.output.parent, prefix=f".{args.output.name}.", delete=False
+        ) as output:
+            temporary_path = Path(output.name)
+            output.write(output_bytes)
+        os.replace(temporary_path, args.output)
+    finally:
+        if temporary_path is not None:
+            temporary_path.unlink(missing_ok=True)
+
+    print(f"Sanitised: {args.output}")
+    print(f"   Size: {len(output_bytes)} bytes")
     return 0
 
 

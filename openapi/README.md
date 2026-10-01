@@ -127,7 +127,11 @@ The `sanitise.py` script in this directory is the canonical transform from the r
 1. **Regex sanitiser** — strips known internal-marker patterns (thread numbers, mutation IDs, phase numbers, internal file paths, internal Lesson/Standing-Rule references, internal verification dates) from description fields.
 2. **Hand-curated overrides** — replaces schema + path descriptions with partner-facing copy that preserves all statute citations and field-usage guidance. The override table is the source of truth for the descriptions in the published snapshot.
 
-A self-check pass at the end of the script verifies that no known-leak pattern survives in the output; the script fails (exit 1) if any do. CI validates the saved OpenAPI document but does not run the sanitiser or this internal-marker check.
+A self-check verifies that no known-leak pattern survives before publishing the output; the script fails (exit 1) if any do.
+
+The script reads and writes UTF-8, reports the encoded byte count, and replaces the destination only after validation and a successful temporary-file write. Validation and write failures preserve an existing snapshot.
+
+CI runs fabricated sanitiser regressions and validates the saved OpenAPI document; it does not fetch and sanitise a fresh live snapshot.
 
 ## Validating the snapshot
 
