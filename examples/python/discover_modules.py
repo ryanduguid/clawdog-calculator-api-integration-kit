@@ -57,7 +57,6 @@ def main() -> int:
     fbt_calcs = http_get(f"/v1/calculators?module={module_uri}")
     print(f"FBT calculators: {len(fbt_calcs)}\n")
     for c in fbt_calcs:
-        calc_name = c['calc_uri'].split(':')[-1]
         selection_kind = c.get('selection', {}).get('kind', '?')
         print(f"  {c['calc_uri']} — {selection_kind}")
     
