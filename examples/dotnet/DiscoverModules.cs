@@ -28,27 +28,23 @@ internal static class DiscoverModules
             && m["calculators"] is JsonArray calculators
             && calculators.Any(c => c is JsonValue value && value.TryGetValue<string>(out var name) && name == calcUri)))
             throw new InvalidDataException("Module discovery does not advertise the example FBT calculator");
-        Console.WriteLine($"Discovered {modules?.Count} modules.\n");
+        Console.WriteLine($"Discovered {modules.Count} modules.\n");
 
-        if (modules is not null)
+        foreach (var m in modules.OfType<JsonObject>())
         {
-            foreach (var m in modules)
-            {
-                if (m is null) continue;
-                var calcsList = m["calculators"] as JsonArray;
-                var firstThree = calcsList?.Take(3)
-                    .Select(c => c?.ToString().Split(':').Last())
-                    .Where(s => s is not null);
-                var calcsPreview = firstThree is not null
-                    ? string.Join(", ", firstThree) + (calcsList?.Count > 3 ? "…" : "")
-                    : "";
+            var calcsList = m["calculators"] as JsonArray;
+            var firstThree = calcsList?.Take(3)
+                .Select(c => c?.ToString().Split(':').Last())
+                .Where(s => s is not null);
+            var calcsPreview = firstThree is not null
+                ? string.Join(", ", firstThree) + (calcsList?.Count > 3 ? "…" : "")
+                : "";
 
-                Console.WriteLine($"  • {m["module_uri"]}");
-                Console.WriteLine($"      label:        {m["label"]}");
-                Console.WriteLine($"      jurisdiction: {m["jurisdiction"]}");
-                Console.WriteLine($"      calculators:  {calcsList?.Count} ({calcsPreview})");
-                Console.WriteLine();
-            }
+            Console.WriteLine($"  • {m["module_uri"]}");
+            Console.WriteLine($"      label:        {m["label"]}");
+            Console.WriteLine($"      jurisdiction: {m["jurisdiction"]}");
+            Console.WriteLine($"      calculators:  {calcsList?.Count} ({calcsPreview})");
+            Console.WriteLine();
         }
 
         // ---- Step 2: GET /v1/calculators?module=urn:sbrm:module:fbt ----
@@ -57,17 +53,13 @@ internal static class DiscoverModules
             $"/v1/calculators?module={ModuleUri}"
         );
         fbtCalcs = RequireCalculator(fbtCalcs, calcUri, periodUri);
-        Console.WriteLine($"FBT calculators: {fbtCalcs?.Count}\n");
+        Console.WriteLine($"FBT calculators: {fbtCalcs.Count}\n");
 
-        if (fbtCalcs is not null)
+        foreach (var c in fbtCalcs.OfType<JsonObject>())
         {
-            foreach (var c in fbtCalcs)
-            {
-                if (c is null) continue;
-                var listedUri = c["calc_uri"]?.ToString();
-                var selectionKind = (c["selection"] as JsonObject)?["kind"]?.ToString() ?? "?";
-                Console.WriteLine($"  {listedUri} - {selectionKind}");
-            }
+            var listedUri = c["calc_uri"]?.ToString();
+            var selectionKind = (c["selection"] as JsonObject)?["kind"]?.ToString() ?? "?";
+            Console.WriteLine($"  {listedUri} - {selectionKind}");
         }
 
         Console.WriteLine("\nSelecting a calculator:");

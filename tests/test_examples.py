@@ -247,6 +247,19 @@ class ExampleTests(unittest.TestCase):
                     self.assertNotIn("=== Done ===", result.stdout)
                     self.assertNotIn("Unhandled exception", result.stderr)
 
+    def test_dotnet_discovery_rejects_mixed_object_arrays(self):
+        module = {"module_uri": "urn:sbrm:module:fbt", "calculators": [CALCULATOR]}
+        command = self.commands()["dotnet"]
+        for option, valid in (("modules", module), ("filtered", LISTING)):
+            for extra in (None, 17, "invalid object", []):
+                with self.subTest(option=option, extra=extra):
+                    result, requests = self.run_example(command, **{option: [valid, extra]})
+                    self.assertEqual(result.returncode, 1, result.stderr)
+                    self.assertEqual(len(requests), 1)
+                    self.assertIn("array of", result.stderr)
+                    self.assertNotIn("=== Done ===", result.stdout)
+                    self.assertNotIn("Unhandled exception", result.stderr)
+
     def test_mcp_probe_checks_the_envelope_and_required_capability(self):
         valid = {"jsonrpc": "2.0", "id": 1, "result": {"tools": [
             {"name": "new-tool"}, {"name": "fbt-car-operating-cost", "extra": True}]}}
