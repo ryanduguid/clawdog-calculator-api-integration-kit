@@ -295,6 +295,28 @@ PATH_DESCRIPTIONS = {
 }
 
 
+INFO_DESCRIPTIONS = {
+    "title": "ClawDog Calculator-Constellation REST API",
+    "summary": (
+        "Public REST + MCP surface over the LodgeiT Labs calculator pool. "
+        "Discover and invoke SBRM-vocabulary deterministic calculators "
+        "(Australian Fringe Benefits Tax, Depreciation) from any HTTP/JSON-RPC client."
+    ),
+    "description": (
+        "Integration target for partner developers consuming the LodgeiT Labs "
+        "calculator constellation. Each calculator is a statute-bound deterministic "
+        "reasoner identified by URN (e.g. `urn:sbrm:calculator:fbt:car-operating-cost`); "
+        "invocation pairs a calculator URN with a domain-prefixed period URN "
+        "(e.g. `urn:sbrm:period:fbt:fy2026`). The response carries the computed "
+        "result, the algebraic trace, a manifest of consumed rate-table sources "
+        "(with `content_hash` provenance), and an advisory block surfacing "
+        "compliance hints.\n\n"
+        "See the `clawdog-calculator-api-integration-kit` for partner-facing docs, "
+        "runnable examples, and client-regeneration commands."
+    ),
+}
+
+
 def apply_overrides(spec):
     schemas = spec.get("components", {}).get("schemas", {})
     for name, desc in SCHEMA_DESCRIPTIONS.items():
@@ -322,7 +344,7 @@ def walk(node, path=""):
             walk(item, f"{path}[{i}]")
 
 
-def main() -> int:
+def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description=(
             "Sanitise a raw OpenAPI spec dump from the calc-api into the "
@@ -347,7 +369,11 @@ def main() -> int:
         default=DEFAULT_OUTPUT,
         help=f"Sanitised output (default: {DEFAULT_OUTPUT.name} in the same directory).",
     )
-    args = parser.parse_args()
+    return parser.parse_args()
+
+
+def main() -> int:
+    args = parse_args()
     if hasattr(sys.stdout, "reconfigure"):
         sys.stdout.reconfigure(errors="backslashreplace")
 
@@ -357,26 +383,9 @@ def main() -> int:
     apply_overrides(spec)
     walk(spec)
 
-    # Also override info.title/summary/description to clean partner-facing copy.
     info = spec.get("info", {})
-    info["title"] = "ClawDog Calculator-Constellation REST API"
-    info["summary"] = (
-        "Public REST + MCP surface over the LodgeiT Labs calculator pool. "
-        "Discover and invoke SBRM-vocabulary deterministic calculators "
-        "(Australian Fringe Benefits Tax, Depreciation) from any HTTP/JSON-RPC client."
-    )
-    info["description"] = (
-        "Integration target for partner developers consuming the LodgeiT Labs "
-        "calculator constellation. Each calculator is a statute-bound deterministic "
-        "reasoner identified by URN (e.g. `urn:sbrm:calculator:fbt:car-operating-cost`); "
-        "invocation pairs a calculator URN with a domain-prefixed period URN "
-        "(e.g. `urn:sbrm:period:fbt:fy2026`). The response carries the computed "
-        "result, the algebraic trace, a manifest of consumed rate-table sources "
-        "(with `content_hash` provenance), and an advisory block surfacing "
-        "compliance hints.\n\n"
-        "See the `clawdog-calculator-api-integration-kit` for partner-facing docs, "
-        "runnable examples, and client-regeneration commands."
-    )
+    for key, description in INFO_DESCRIPTIONS.items():
+        info[key] = description
 
     out_text = json.dumps(spec, ensure_ascii=False, separators=(",", ":"))
 
