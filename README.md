@@ -2,8 +2,8 @@
 
 **Fork status**
 
-[![Fork code quality](https://app.codacy.com/project/badge/Grade/0e44a44c734240f793a53753cab566d0?branch=main)](https://app.codacy.com/gh/ryanduguid/clawdog-calculator-api-integration-kit/dashboard)
-[![Fork test](https://github.com/ryanduguid/clawdog-calculator-api-integration-kit/actions/workflows/test.yml/badge.svg?branch=main)](https://github.com/ryanduguid/clawdog-calculator-api-integration-kit/actions/workflows/test.yml)
+[![Fork code quality](https://img.shields.io/codacy/grade/0e44a44c734240f793a53753cab566d0/main?style=flat&labelColor=000000)](https://app.codacy.com/gh/ryanduguid/clawdog-calculator-api-integration-kit/dashboard)
+[![Fork test](https://img.shields.io/github/actions/workflow/status/ryanduguid/clawdog-calculator-api-integration-kit/test.yml?branch=main&label=test&style=flat&labelColor=000000)](https://github.com/ryanduguid/clawdog-calculator-api-integration-kit/actions/workflows/test.yml)
 
 > Integration kit for the [ClawDog Calculator-Constellation REST API][api]. Discover and invoke SBRM-vocabulary calculators (Australian Fringe Benefits Tax, Depreciation) from any HTTP/JSON-RPC client.
 
